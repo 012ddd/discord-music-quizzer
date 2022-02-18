@@ -1,5 +1,5 @@
 import { MessageCollector, VoiceChannel, TextChannel, Guild, DMChannel } from 'discord.js';
-import ytdl from 'ytdl-core-discord'
+import ytdl from 'discord-ytdl-core'
 import { QuizArgs } from './types/quiz-args'
 import { CommandoMessage } from 'discord.js-commando'
 import Spotify from './spotify'
@@ -10,7 +10,9 @@ import internal from 'stream'
 import { StreamDispatcher } from 'discord.js';
 import { NewsChannel } from 'discord.js';
 
-const stopCommand = '!stop'
+const stringSimilarity = require("string-similarity");
+
+const stopCommand = '!stop-music-quiz'
 const skipCommand = '!skip'
 
 export class MusicQuiz {
@@ -72,8 +74,8 @@ export class MusicQuiz {
 
             ${this.pointText()}
 
-            Type \`${stopCommand}\` to vote for continuing to the next song.
-            Type \`${skipCommand}\` to stop the quiz.
+            Type \`${skipCommand}\` to vote for continuing to the next song.
+            Type \`${stopCommand}\` to stop the quiz.
 
             - GLHF :microphone:
         `.replace(/  +/g, ''))
@@ -102,7 +104,10 @@ export class MusicQuiz {
         }
 
         try {
-            this.musicStream = await ytdl(link)
+            this.musicStream = await ytdl(link, {
+                opusEncoded: true,
+                seek: 50
+            })
         } catch (e) {
             console.error(e);
 
@@ -113,18 +118,18 @@ export class MusicQuiz {
 
         this.songTimeout = setTimeout(() => {
             this.nextSong('Song was not guessed in time')
-        }, 1000 * 60);
+        }, 1000 * 30);
 
         try {
             this.voiceStream = this.connection.play(this.musicStream, { type: 'opus', volume: .5 })
 
-            this.voiceStream.on('error', () => {
+            this.voiceStream.on('error', (error) => {
+                    console.error(error)
                     this.textChannel.send('Connection got interrupted. Please try again')
 
                     this.finish()
                 })
             this.voiceStream.on('finish', () => this.finish())
-            this.voiceStream
         } catch (e) {
             console.error(e);
 
@@ -133,6 +138,7 @@ export class MusicQuiz {
             this.finish()
         }
     }
+    
 
     async handleMessage(message: CommandoMessage) {
         const content = message.content.toLowerCase()
@@ -153,14 +159,14 @@ export class MusicQuiz {
         let score = this.scores[message.author.id] || 0
         let correct = false
 
-        if (!this.titleGuessed && content.includes(song.title.toLowerCase())) {
+        if (!this.titleGuessed && stringSimilarity.compareTwoStrings(content, song.title.toLowerCase()) >= 0.65) {
             score = score + 2
             this.titleGuessed = true
             correct = true
             await this.reactToMessage(message, '☑')
         }
 
-        if (!this.artistGuessed && content.includes(song.artist.toLowerCase())) {
+        if (!this.artistGuessed && stringSimilarity.compareTwoStrings(content, song.artist.toLowerCase()) >= 0.70) {
             score = score + 3
             this.artistGuessed = true
             correct = true
@@ -186,13 +192,16 @@ export class MusicQuiz {
 
         const members = this.voiceChannel.members
             .filter(member => !member.user.bot)
-        if (this.skippers.length === members.size) {
+
+        const membersNeededToSkip = members.size === 1 ? 1 : (members.size - 1);
+
+        if (membersNeededToSkip === 0 || this.skippers.length === membersNeededToSkip) {
             this.nextSong('Song skipped!')
 
             return
         }
 
-        this.textChannel.send(`**(${this.skippers.length}/${members.size})** to skip the song`)
+        this.textChannel.send(`**(${this.skippers.length}/${membersNeededToSkip})** to skip the song`)
     }
 
     async finish() {
