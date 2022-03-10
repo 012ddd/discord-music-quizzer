@@ -58,6 +58,10 @@ export class MusicQuiz {
 
         await this.textChannel.send('this.songs: ' + this.songs.length)
 
+        this.songs.forEach((function (song) {  
+            console.log(song.artist + ' - ' + song.title + ' | ' + song.link);  
+        }))
+
         try {
             this.connection = await this.voiceChannel.join()
         } catch (e) {
