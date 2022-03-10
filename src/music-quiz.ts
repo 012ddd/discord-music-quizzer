@@ -56,6 +56,8 @@ export class MusicQuiz {
             return
         }
 
+        await this.textChannel.send('this.songs: ' + this.songs.length)
+
         try {
             this.connection = await this.voiceChannel.join()
         } catch (e) {
@@ -99,7 +101,7 @@ export class MusicQuiz {
         const link = await this.findSong(song)
         if (!link) {
             this.nextSong('Could not find the song on Youtube. Skipping to next.')
-
+            await this.textChannel.send('Could not find the song (' + song.artist + ' - ' + song.title + ') on Youtube. Skipping to next.')
             return
         }
 
