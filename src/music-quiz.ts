@@ -303,6 +303,7 @@ export class MusicQuiz {
                     artist: (song.artists[0] || {}).name
                 }))
         } catch (error) {
+            console.log(error)
             this.textChannel.send('Could not retrieve the playlist. Make sure it\'s public')
 
             return null
