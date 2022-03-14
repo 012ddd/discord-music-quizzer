@@ -14,9 +14,7 @@ export default class Spotify {
     }
 
     async getPlaylist(id: string) {
-        const res = await this.client.getPlaylist(id)
-
-        const offset = Math.random() * (res.body.tracks.total - 0) + 0
+        const offset = Math.random() * (700 - 0) + 0
 
         const result = await this.client.getPlaylistTracks(id,{
             offset: offset
