@@ -15,6 +15,17 @@ const stringSimilarity = require("string-similarity");
 const stopCommand = '!stop-music-quiz'
 const skipCommand = '!skip'
 
+const timeoutSongPlaying = 30
+
+// sleep function
+function wait(ms: number){
+    var start = new Date().getTime();
+    var end = start;
+    while(end < start + ms) {
+        end = new Date().getTime();
+    }
+}
+
 export class MusicQuiz {
     guild: Guild
     textChannel: TextChannel | DMChannel | NewsChannel
@@ -56,11 +67,9 @@ export class MusicQuiz {
             return
         }
 
-        await this.textChannel.send('this.songs: ' + this.songs.length)
-
-        this.songs.forEach((function (song) {  
-            console.log(song.artist + ' - ' + song.title + ' | ' + song.link);  
-        }))
+        // this.songs.forEach((function (song) {
+        //     console.log(song.artist + ' - ' + song.title + ' | ' + song.link);
+        // }))
 
         try {
             this.connection = await this.voiceChannel.join()
@@ -110,9 +119,13 @@ export class MusicQuiz {
         }
 
         try {
+            const maxSeekSeconds = song.duration_ms/1000 - timeoutSongPlaying;
+            const minSeekSeconds = 10
+            const randomSeek = Math.floor(Math.random() * (maxSeekSeconds - minSeekSeconds + 1)) + minSeekSeconds;  // random between any two numbers
+            //console.log('Song has ' + song.duration_ms/1000 + ' secs; seeking to ' + randomSeek + ' secs - diff: (' + (song.duration_ms/1000 - randomSeek) + ')')
             this.musicStream = await ytdl(link, {
                 opusEncoded: true,
-                seek: 50
+                seek: randomSeek
             })
         } catch (e) {
             console.error(e);
@@ -124,7 +137,7 @@ export class MusicQuiz {
 
         this.songTimeout = setTimeout(() => {
             this.nextSong('Song was not guessed in time')
-        }, 1000 * 30);
+        }, 1000 * timeoutSongPlaying);
 
         try {
             this.voiceStream = this.connection.play(this.musicStream, { type: 'opus', volume: .5 })
@@ -135,7 +148,10 @@ export class MusicQuiz {
 
                     this.finish()
                 })
-            this.voiceStream.on('finish', () => this.finish())
+            this.voiceStream.on('finish', () => {
+                //this.finish()
+                this.nextSong('Song playback finished unexpectedly. Skipping...')
+            })
         } catch (e) {
             console.error(e);
 
@@ -144,7 +160,7 @@ export class MusicQuiz {
             this.finish()
         }
     }
-    
+
 
     async handleMessage(message: CommandoMessage) {
         const content = message.content.toLowerCase()
@@ -221,6 +237,9 @@ export class MusicQuiz {
     }
 
     nextSong(status: string) {
+        //console.log("sleep before fetching next song");
+        wait(500);
+
         if (this.songTimeout) clearTimeout(this.songTimeout)
         this.printStatus(status)
 
@@ -293,6 +312,11 @@ export class MusicQuiz {
         }
 
         try {
+            const playlistSize = await spotify.getPlaylistSize(playlist)
+            console.log('Getting playlist with number of songs: ' + playlistSize)
+            this.textChannel.send('Getting playlist with number of songs: ' + playlistSize)
+
+            //return (await spotify.getPlaylist(playlist, (string: AutoKeyword) => {this.textChannel.send(string)}))
             return (await spotify.getPlaylist(playlist))
                 .sort(() => Math.random() > 0.5 ? 1 : -1)
                 .filter((song, index) => index < amount)
@@ -300,8 +324,10 @@ export class MusicQuiz {
                     link: `https://open.spotify.com/track/${song.id}`,
                     previewUrl: song.preview_url,
                     title: this.stripSongName(song.name),
-                    artist: (song.artists[0] || {}).name
+                    artist: (song.artists[0] || {}).name,
+                    duration_ms: song.duration_ms
                 }))
+
         } catch (error) {
             console.log(error)
             this.textChannel.send('Could not retrieve the playlist. Make sure it\'s public')
