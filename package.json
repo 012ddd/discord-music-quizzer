@@ -24,7 +24,7 @@
         "spotify-web-api-node": "^4.0.0",
         "string-similarity": "^4.0.4",
         "typescript": "^3.9.7",
-        "ytdl-core": "^4.10.1",
+        "ytdl-core": "^4.11.2",
         "ytdl-core-discord": "^1.2.5"
     },
     "devDependencies": {
